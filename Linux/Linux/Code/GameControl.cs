@@ -15,6 +15,7 @@ namespace Linux.Code
         SpriteBatch spriteBatch;
         Random random = new Random();
         public static GameTime LastUpdate = new GameTime();
+        public static uint CurrentFrame;
 
         DirectoryInfo path = new DirectoryInfo(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location));
 
@@ -23,7 +24,6 @@ namespace Linux.Code
         public static List<Player> AllPlayers = new List<Player>();
         public static Player GetPlayerByID(byte netID)
         {
-            Debug.Assert(netID != 0);
             return AllPlayers.Find(p => p.NetID == netID);
         }
 

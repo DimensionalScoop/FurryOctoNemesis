@@ -6,6 +6,7 @@ using System.Text;
 using Lidgren.Network;
 using System.Net;
 using System.Threading;
+using System.Diagnostics;
 
 namespace Linux.Code
 {
@@ -15,16 +16,19 @@ namespace Linux.Code
         static readonly TimeSpan DiscoveryTimeout = TimeSpan.FromMilliseconds(500);
         static readonly TimeSpan ConnectingTimeout = TimeSpan.FromMilliseconds(5000);
 
-        Guid ID = Guid.NewGuid();
         
         NetPeerConfiguration Config;
-        NetPeer Peer;
-        class NetPlayer { public NetConnection Connection; public Player Player; public NetPlayer(NetConnection conn, Player player) { Connection = conn; Player = player; } }
-        List<NetPlayer> RecognizedConnections = new List<NetPlayer>();
-        NetIncomingMessage incMessage;
+        public NetPeer Peer;
+        public class NetPlayer { public NetConnection Connection; public Player Player; public NetPlayer(NetConnection conn, Player player) { Connection = conn; Player = player; } }
+        public List<NetPlayer> RecognizedConnections = new List<NetPlayer>();
 
+        static Server ThisInstance;
 
-        public Server(Game game) : base(game) { }
+        public Server(Game game) : base(game) 
+        {
+            if (ThisInstance != null) throw new Exception("There can only be one server at a time! (Highlander)");
+            ThisInstance = this;
+        }
 
         public override void Initialize()
         {
@@ -47,7 +51,7 @@ namespace Linux.Code
             DateTime timer = DateTime.Now;
             while (DateTime.Now - timer < DiscoveryTimeout)
             {
-                incMessage = Peer.ReadMessage();
+                var incMessage = Peer.ReadMessage();
                 if(incMessage!=null)
                 if (incMessage.MessageType == NetIncomingMessageType.DiscoveryResponse)
                 {
@@ -94,20 +98,23 @@ namespace Linux.Code
             DateTime timer = DateTime.Now;
             while (DateTime.Now - timer < ConnectingTimeout)
             {
-                while ((incMessage = Peer.ReadMessage()) != null)
+                while (true)
                 {
+                    var incMessage = Peer.ReadMessage();
+                    if (incMessage == null) break;
+
                     switch (incMessage.MessageType)
                     {
                         case NetIncomingMessageType.Data:
                             Console.WriteLine("[Lidgren]: Receiving data...");
-                            ReceiveMessage();
+                            ReceiveMessage(incMessage);
                             break;
 
                         default:
                             Console.WriteLine("[Lidgren]: Unhandled message type: " + incMessage.MessageType);
+                            Peer.Recycle(incMessage);
                             break;
                     }
-                    Peer.Recycle(incMessage);
                 }
             }
             if (RecognizedConnections.Count > 0)
@@ -117,7 +124,7 @@ namespace Linux.Code
                 WriteMessageHeader(msg, Commands.PlayerDataUpdate);
                 GameControl.LocalPlayer.WriteToStream(msg);
                 Peer.SendMessage(msg, RecognizedConnections.Select(p => p.Connection).ToList(), NetDeliveryMethod.ReliableOrdered, 0);
-                ShowConnectedPplayers();
+                ShowConnectedPlayers();
                 return true;
             }
             else
@@ -154,8 +161,11 @@ namespace Linux.Code
 
         public override void Update(GameTime gameTime)
         {
-            while ((incMessage = Peer.ReadMessage()) != null)
+            while (true)
             {
+                var incMessage = Peer.ReadMessage();
+                if (incMessage == null) break;
+
                 switch (incMessage.MessageType)
                 {
                     case NetIncomingMessageType.VerboseDebugMessage:
@@ -163,22 +173,25 @@ namespace Linux.Code
                     case NetIncomingMessageType.WarningMessage:
                     case NetIncomingMessageType.ErrorMessage:
                         Console.WriteLine("[Lidgren]: "+incMessage.ReadString());
+                        Peer.Recycle(incMessage);
                         break;
 
                     case NetIncomingMessageType.DiscoveryRequest:
                         var msg = Peer.CreateMessage();
                         WriteMessageHeader(msg, Commands.Null);
                         Peer.SendDiscoveryResponse(msg, incMessage.SenderEndPoint);
+                        Peer.Recycle(incMessage);
                         break;
 
                     case NetIncomingMessageType.ConnectionApproval:
                         Console.WriteLine("[Lidgren]: Approving connection.");
                         incMessage.SenderConnection.Approve();
+                        Peer.Recycle(incMessage);
                         break;
 
                     case NetIncomingMessageType.Data:
                         Console.WriteLine("[Lidgren]: Incoming data.");
-                        ReceiveMessage();
+                        ReceiveMessage(incMessage);
                         break;
 
                     case NetIncomingMessageType.StatusChanged:
@@ -189,18 +202,25 @@ namespace Linux.Code
                             case NetConnectionStatus.Disconnected: Console.WriteLine("[Lidgren]: Disconnected from " + incMessage.SenderEndPoint.Address); break;
                             default: Console.WriteLine("[Lidgren]: Status " + incMessage.ReadString()); break;
                         }
+                        Peer.Recycle(incMessage);
                         break;
 
                     default:
                         Console.WriteLine("[Lidgren]: Unhandled message type: " + incMessage.MessageType);
                         Console.WriteLine("[Lidgren]: " + incMessage.ReadString());
+                        Peer.Recycle(incMessage);
                         break;
-
-
                 }
-
-                Peer.Recycle(incMessage);
             }
+
+            foreach (var msg in MessageQueue)
+            {
+                if (msg.frame == GameControl.CurrentFrame)
+                    SyncObjects[msg.command - (short)Commands.LastSystemCommand].MessageReceived(msg.sender, msg.msg);
+                else if (msg.frame<GameControl.CurrentFrame)
+                    SyncObjects[msg.command - (short)Commands.LastSystemCommand].LateMessageReceived(msg.sender,msg.frame ,msg.msg);
+            }
+            MessageQueue.RemoveAll(p => p.frame <= GameControl.CurrentFrame);
 
             base.Update(gameTime);
         }
@@ -220,11 +240,16 @@ namespace Linux.Code
             Peer.SendMessage(msg, netConnection, NetDeliveryMethod.ReliableOrdered);
         }
 
-        private void WriteMessageHeader(NetOutgoingMessage msg, Commands command, uint frame = 0)
+        public static void WriteMessageHeader(NetOutgoingMessage msg, Commands command, uint frame = 0)
+        {
+            WriteMessageHeader(msg,(short)command,frame);
+        }
+
+        public static void WriteMessageHeader(NetOutgoingMessage msg, short command, uint frame = 0)
         {
             msg.Write((byte)GameControl.LocalPlayer.NetID);
             msg.Write(frame);
-            msg.Write((short)command);
+            msg.Write(command);
         }
 
         public enum Commands:short
@@ -235,15 +260,43 @@ namespace Linux.Code
             SendPlayerDataTo,
             PlayerDataUpdate,
 
+            /// <summary>
+            /// Last server management command, seperating api and user-defined commands.
+            /// </summary>
+            LastSystemCommand
         }
 
-        void ReceiveMessage()
-        {
-            byte senderNetID = incMessage.ReadByte();
-            uint frame=incMessage.ReadUInt32();
-            short command = incMessage.ReadInt16();
 
-            switch ((Commands)command)
+
+        static List<SyncObject> SyncObjects = new List<SyncObject>();
+        public static SyncObject GetSyncObject()
+        {
+            var returnValue = new SyncObject(ThisInstance);
+            Debug.Assert(returnValue.ID - SyncObjects.Count - 1 == 0);
+            SyncObjects.Add(returnValue);
+            return returnValue;
+        }
+
+
+        public class Message { public Player sender; public uint frame; public short command; public NetBuffer msg;}
+        public List<Message> MessageQueue = new List<Message>();
+
+        public void Sync(NetOutgoingMessage msg)
+        {
+            
+        }
+
+        void ReceiveMessage(NetIncomingMessage inc)
+        {
+            var message = new Message()
+            {
+                sender=GameControl.GetPlayerByID(inc.ReadByte()),
+                frame=inc.ReadUInt32(),
+                command=inc.ReadInt16(),
+                msg=inc
+            };
+
+            switch ((Commands)message.command)
             {
                 case Commands.Null:
                     Console.WriteLine("[Lidegren]: Null received.");
@@ -251,47 +304,51 @@ namespace Linux.Code
 
                 case Commands.OpenFirstConnection:
                     Console.WriteLine("[Lidgren]: Sending request to send player data.");    
-                    SendPlayerDataTo(incMessage.SenderConnection);
+                    SendPlayerDataTo(inc.SenderConnection);
                     break;
 
                 case Commands.SendPlayerDataTo:
                     Console.WriteLine("[Lidgren]: Sending player data");
-                    var ip = incMessage.ReadString();
+                    var ip = inc.ReadString();
                     var connection= Peer.Connect(ip,Port);
                     var msg = Peer.CreateMessage();
                     WriteMessageHeader(msg,Commands.PlayerDataUpdate);
-                    msg.WriteAllFields(GameControl.LocalPlayer, System.Reflection.BindingFlags.Public);
+                    GameControl.LocalPlayer.WriteToStream(msg);
                     Peer.SendMessage(msg, connection, NetDeliveryMethod.ReliableOrdered);
                     break;
 
                 case Commands.PlayerDataUpdate:
                     Console.WriteLine("[Lidgren]: Receiving update on player data.");
-                    if (senderNetID == GameControl.LocalPlayer.NetID) break;
+                    if (message.sender == GameControl.LocalPlayer) break;
 
-                    var sender = GameControl.GetPlayerByID(senderNetID);
-                    if (sender == null)
+                    if (message.sender == null)
                     {
                         var player = new Player();
-                        player.ReadFromStream(incMessage);
+                        player.ReadFromStream(inc);
                         GameControl.AllPlayers.Add(player);
-                        RecognizedConnections.Add(new NetPlayer(incMessage.SenderConnection, player));
+                        RecognizedConnections.Add(new NetPlayer(inc.SenderConnection, player));
                     }
                     else
                     {
-                        sender.ReadFromStream(incMessage);
+                        message.sender.ReadFromStream(inc);
                     }
-                    ShowConnectedPplayers();
+                    ShowConnectedPlayers();
                     break;
 
                 default:
-                    Console.WriteLine("[Lidgren]: Command not implemented!");
-                    throw new NotImplementedException();
+                    if (message.command > (short)Commands.LastSystemCommand && message.command - (short)Commands.LastSystemCommand <= SyncObjects.Count)
+                        MessageQueue.Add(message);
+                    else
+                    {
+                        Console.WriteLine("[Lidgren]: Command not implemented!");
+                        throw new NotImplementedException();
+                    }
                     break;
 
             }
         }
 
-        private void ShowConnectedPplayers()
+        private void ShowConnectedPlayers()
         {
             Console.WriteLine("[Lidgren]: Recognized Players:");
             Console.WriteLine("[Lidgren]: NetID " + GameControl.LocalPlayer.NetID + ", " + GameControl.LocalPlayer.Color.ToString() + ", IP: local");
