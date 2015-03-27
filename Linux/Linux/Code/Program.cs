@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 #endregion
 
-namespace Linux
+namespace Linux.Code
 {
 #if WINDOWS || LINUX
     /// <summary>

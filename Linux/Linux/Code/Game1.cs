@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 
-namespace Linux
+namespace Linux.Code
 {
     /// <summary>
     /// This is the main type for your game
@@ -31,7 +31,7 @@ namespace Linux
             TargetElapsedTime = TimeSpan.FromMilliseconds(30);
             graphics.ApplyChanges();
 
-            //Components.Add(new GameControl(this));
+            Components.Add(new GameControl(this));
             
         }
 
@@ -90,7 +90,7 @@ namespace Linux
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.CornflowerBlue);
+            GraphicsDevice.Clear(new Color(30, 30, 30));
 
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, SamplerState.PointClamp,null,null,null);
 
