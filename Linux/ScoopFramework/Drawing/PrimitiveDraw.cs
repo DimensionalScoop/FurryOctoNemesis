@@ -3,7 +3,7 @@ using System.Diagnostics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace X45Game.Drawing
+namespace ScoopFramework.Drawing
 {
     public class PrimitiveDraw : DrawableGameComponent
     {
@@ -20,6 +20,7 @@ namespace X45Game.Drawing
             : base(game)
         {
             _maxStructureSize = maxStructureSize;
+            game.Components.Add(this);
         }
 
         public Matrix ViewMatrix { get; private set; }
@@ -87,6 +88,10 @@ namespace X45Game.Drawing
             CameraPosition = new Vector3(x, y, z);
         }
 
+        public void Setup2D()
+        {
+            SetCamera(0, 0, 0);
+        }
 
         /// <summary>
         ///     Draws a circle.
@@ -121,6 +126,19 @@ namespace X45Game.Drawing
 
             _vertexArray[_vertexCounter][0] = new VertexPositionColor(new Vector3(start, depth), color);
             _vertexArray[_vertexCounter][1] = new VertexPositionColor(new Vector3(end, depth), color);
+
+            _vertexCounter++;
+        }
+
+        public void DrawLine(Vector2 start, Vector2 end, Color startColor,Color endColor,float depth = 0)
+        {
+            if (!IsVisible(start))
+                return;
+
+            _vertexArray[_vertexCounter] = new VertexPositionColor[2];
+
+            _vertexArray[_vertexCounter][0] = new VertexPositionColor(new Vector3(start, depth), startColor);
+            _vertexArray[_vertexCounter][1] = new VertexPositionColor(new Vector3(end, depth), endColor);
 
             _vertexCounter++;
         }

@@ -4,7 +4,7 @@ using System.Diagnostics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace X45Game.Drawing
+namespace ScoopFramework.Drawing
 {
     public class StarField : DrawableGameComponent
     {
@@ -18,6 +18,9 @@ namespace X45Game.Drawing
         private Vector2[] _positions;
         private Random _random;
         private SpriteBatch _spriteBatch;
+        private bool _hide;
+
+        public float WarpFactor=0f;
 
 
         /// <param name="game"></param>
@@ -33,7 +36,10 @@ namespace X45Game.Drawing
 
             _brightness = brightness;
             _flare = flare;
-            _starMultiplicator = starMultiplicator;
+            _starMultiplicator = starMultiplicator * 1.8f;
+
+            Game.Components.Add(this);
+            Game.Services.AddService(typeof(StarField),this);
         }
 
         public override void Initialize()
@@ -59,15 +65,23 @@ namespace X45Game.Drawing
             }
 
             _offset += new Vector2(10000, 10000); //XXX
+
+            GenerateBrightnessTable();
         }
+
+        public void Hide() { _hide = true; }
+        public void Show() { _hide = false; }
 
         public void MoveCamera(Vector2 delta)
         {
             _offset += delta;
+            _offset.Y += delta.Y * WarpFactor*10;
         }
 
         public override void Draw(GameTime gameTime)
         {
+            if (_hide) return;
+
             if (_spriteBatch == null)
                 _spriteBatch = new SpriteBatch(GraphicsDevice);
             if (point == null)
@@ -76,20 +90,53 @@ namespace X45Game.Drawing
                 point.SetData(new[] {Color.White});
             }
 
-            _spriteBatch.Begin();
+            _spriteBatch.Begin(SpriteSortMode.Deferred,BlendState.Additive);
 
             for (int i = 0; i < _positions.Length; i++)
             {
-                Vector2 pos = _positions[i] + _offset;
-                _spriteBatch.Draw(point,
-                                 new Vector2(pos.X%GraphicsDevice.Viewport.Width, pos.Y%GraphicsDevice.Viewport.Height),
-                                 Color.Multiply(_colors[i],
-                                                _brightness*(_random.Next((int) MathHelper.Lerp(0, 100, _flare), 100)/100f)));
+                var maxW = WarpFactor * _colors[i].A / 255 * 20;
+                for(int w=0;w<=maxW;w++)
+                    DrawStar(_positions[i] + new Vector2(0, -w), _colors[i], w == 0 ? 0 : w / maxW);
             }
 
             _spriteBatch.End();
 
             base.Draw(gameTime);
+        }
+
+        #region MethodFileds
+        static Vector2 mpos;
+        static Color mcol;
+        static float mx;
+        static float my;
+
+        float[] brightnessTable;
+
+        private void GenerateBrightnessTable()
+        {
+            var count = GraphicsDevice.Viewport.Width + GraphicsDevice.Viewport.Height;
+            brightnessTable = new float[count];
+            for (int i = 0; i < count; i++)
+                brightnessTable[i] = _brightness * (_random.Next((int)MathHelper.Lerp(0, 100, _flare), 100) / 100f);
+        }
+        #endregion
+        private void DrawStar(Vector2 position, Color color, float aOverwrite)
+        {
+            mpos = position + _offset;
+            mpos = new Vector2(mpos.X % GraphicsDevice.Viewport.Width, mpos.Y % GraphicsDevice.Viewport.Height);
+            
+            mx = mpos.X / GraphicsDevice.Viewport.Width;
+            my = mpos.Y / GraphicsDevice.Viewport.Height;
+            mpos.X += (mx - 0.5f) * my * 4000 * WarpFactor;
+            if (mpos.X < 0 || mpos.X > GraphicsDevice.Viewport.Width ||
+                mpos.Y < 0 || mpos.Y > GraphicsDevice.Viewport.Height)
+                return;
+
+            mcol = Color.Multiply(color, brightnessTable[(int)MathHelper.Clamp(mpos.X + mpos.Y,0,brightnessTable.Length-1)]);
+            mcol = Color.Lerp(mcol, Color.Blue, WarpFactor * 0.5f);
+            mcol.A = (byte)(mcol.A * (1 - aOverwrite));
+
+            _spriteBatch.Draw(point, mpos, mcol);
         }
     }
 }

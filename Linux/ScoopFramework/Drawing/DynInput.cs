@@ -5,10 +5,10 @@ using System.Text;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using X45Game.Input;
-using X45Game.Strategics;
+using ScoopFramework.Input;
+using ScoopFramework.Strategics;
 
-namespace X45Game.Drawing
+namespace ScoopFramework.Drawing
 {
     public class InputItem
     {

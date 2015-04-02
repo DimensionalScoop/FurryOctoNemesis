@@ -44,6 +44,23 @@
     <Compile Include="Code\Player.cs" />
     <Compile Include="Code\Program.cs" />
     <Compile Include="Code\Server.cs" />
+    <Compile Include="Code\SpaceShip\Autopilot.cs" />
+    <Compile Include="Code\SpaceShip\EnergyDistributor.cs" />
+    <Compile Include="Code\SpaceShip\Engines.cs" />
+    <Compile Include="Code\Fraction.cs" />
+    <Compile Include="Code\SpaceShip\Gear.cs" />
+    <Compile Include="Code\SpaceShip\Hull.cs" />
+    <Compile Include="Code\SpaceShip\InfoModule.cs" />
+    <Compile Include="Code\SpaceShip\Item.cs" />
+    <Compile Include="Code\SpaceShip\LandingSlot.cs" />
+    <Compile Include="Code\SpaceShip\Main.cs" />
+    <Compile Include="Code\SpaceShip\MMCO.cs" />
+    <Compile Include="Code\SpaceShip\Shields.cs" />
+    <Compile Include="Code\SpaceShip\Storage.cs" />
+    <Compile Include="Code\SpaceShip\Subsystem.cs" />
+    <Compile Include="Code\SpaceShip\SubsystemInterfaces.cs" />
+    <Compile Include="Code\SpaceShip\TargetingAI.cs" />
+    <Compile Include="Code\SpaceShip\Weapon.cs" />
     <Compile Include="Code\SyncObject.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

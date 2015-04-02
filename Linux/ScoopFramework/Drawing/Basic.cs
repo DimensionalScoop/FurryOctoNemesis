@@ -1,48 +1,48 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using X45Game.Extensions;
+using ScoopFramework.Extensions;
 
-namespace X45Game.Drawing
+namespace ScoopFramework.Drawing
 {
+    [Obsolete("Use the SpriteBatch extensions intead")]
     public class Basic
     {
         private static Sprite point;
 
-        public static void DrawProgressBar(SpriteBatch spriteBatch, Vector2 position, int backgroundLenght,
-                                           int foregroundLenght, int height, Color backgroundColor,
+        public static void DrawProgressBar(SpriteBatch spriteBatch, Vector2 position, int backgroundLength,
+                                           int foregroundLength, int height, Color backgroundColor,
                                            Color foregroundColor)
         {
             if (point == null)
-                point = new Sprite("drawing\\point.png");
+                point = new Sprite("drawing\\resources\\point.png");
 
-            var barPosition = new Point((int) (position.X - backgroundLenght/2f), (int) position.Y - height);
+            var barPosition = new Point((int) (position.X - backgroundLength/2f), (int) position.Y - height);
 
-            spriteBatch.Draw(point, new Rectangle(barPosition.X, barPosition.Y, backgroundLenght, height),
+            spriteBatch.Draw(point, new Rectangle(barPosition.X, barPosition.Y, backgroundLength, height),
                              backgroundColor);
-            spriteBatch.Draw(point, new Rectangle(barPosition.X, barPosition.Y, foregroundLenght, height),
+            spriteBatch.Draw(point, new Rectangle(barPosition.X, barPosition.Y, foregroundLength, height),
                              foregroundColor);
         }
 
-        public static void DrawLine(SpriteBatch spriteBatch, Vector2 startPosition, Vector2 endPosition, Color color)
+        public static void DrawLine(SpriteBatch spriteBatch, Vector2 startPosition, Vector2 endPosition, Color color,float layerDepth=0)
         {
             if (point == null)
-                point = new Sprite("drawing\\point.png");
+                point = new Sprite("drawing\\resources\\point.png");
 
             spriteBatch.Draw(point,
                              new Rectangle((int) Math.Round(startPosition.X), (int) Math.Round(startPosition.Y),
                                            (int) (endPosition - startPosition).Length(), 1), null, color,
-                             endPosition.Angle(startPosition), Vector2.Zero, SpriteEffects.None, 0);
+                             endPosition.Angle(startPosition), Vector2.Zero, SpriteEffects.None, layerDepth);
             //spriteBatch.Draw(point,startPosition, new Rectangle(0, 0, (int)Vector2.Distance(startPosition,endPosition),1), color, (float)endPosition.Angle(startPosition), Vector2.Zero,1, SpriteEffects.None, 0);
         }
 
         public static void DrawRectangle(SpriteBatch spriteBatch, Vector2 location, float width, float height,
-                                         Color color)
+                                         Color color,float drawOrder=0)
         {
             if (point == null)
-                point = new Sprite("drawing\\point.png");
-            spriteBatch.Draw(point, new Rectangle((int) location.X, (int) location.Y, (int) width, (int) height), color);
+                point = new Sprite("drawing\\resources\\point.png");
+            spriteBatch.Draw(point, new Rectangle((int) location.X, (int) location.Y, (int) width, (int) height),null, color,0,Vector2.Zero, SpriteEffects.None,drawOrder);
         }
 
         public static void DrawBox(SpriteBatch spriteBatch, Vector2 position, int width, int height)
@@ -65,6 +65,15 @@ namespace X45Game.Drawing
                      position + new Vector2(width - 2, 0) + new Vector2(0, height), boundsColor);
             DrawLine(spriteBatch, position + new Vector2(width - 1, 0),
                      position + new Vector2(width - 1, 0) + new Vector2(0, height), boundsColor);
+        }
+
+        public static void DrawText(SpriteBatch spriteBatch,string text, Vector2 position,bool align, Font font, Color color)
+        {
+            position=(align?
+                position-font.SpriteFont.MeasureString(text)/2:
+                position);
+
+            spriteBatch.DrawString(font,text,new Vector2((int)position.X,(int)position.Y),color);
         }
     }
 }

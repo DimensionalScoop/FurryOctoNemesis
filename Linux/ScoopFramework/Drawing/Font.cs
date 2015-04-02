@@ -3,7 +3,7 @@ using System.IO;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace X45Game.Drawing
+namespace ScoopFramework.Drawing
 {
     public class Font
     {

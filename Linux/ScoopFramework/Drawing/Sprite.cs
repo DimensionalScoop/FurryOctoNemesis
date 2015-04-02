@@ -1,11 +1,13 @@
-﻿using System;
+﻿#define LINUX
+
+using System;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using Microsoft.Xna.Framework;
 using System.Diagnostics;
 using Microsoft.Xna.Framework.Content;
 
-namespace X45Game.Drawing
+namespace ScoopFramework.Drawing
 {
     public class Sprite
     {
@@ -24,7 +26,7 @@ namespace X45Game.Drawing
                 _texture = value;
             }
         }
-        public Vector2 TextureOrigin
+        public virtual Vector2 TextureOrigin
         {
             get
             {
@@ -58,7 +60,7 @@ namespace X45Game.Drawing
         public void Load()
         {
             if (content == null || device == null)
-                throw new Exception("The Sprite class must be initalized!");
+                throw new Exception("The Sprite class must be initialized!");
 
             try
             {
@@ -69,14 +71,19 @@ namespace X45Game.Drawing
                 try
                 {
                     using (Stream r = new FileStream(Filename, FileMode.Open))
-                            Texture = Texture2D.FromStream(device, r);
+					{
+
+						Texture = Texture2D.FromStream(device, r);
+					}
                 }
                 catch
                 {
                     try
                     {
                         using (Stream r = new FileStream("Sprite\\"+Filename, FileMode.Open))
-                                Texture = Texture2D.FromStream(device, r);
+						{
+							Texture = Texture2D.FromStream(device, r);
+						}
                     }
                     catch
                     {
@@ -87,10 +94,14 @@ namespace X45Game.Drawing
         }
 
         public void SaveTo(string file, int width, int height)
-        {
-            using (FileStream stream = new FileStream(file, FileMode.CreateNew))
-                Texture.SaveAsPng(stream, width, height);
-        }
+		{
+			using (FileStream stream = new FileStream(file, FileMode.CreateNew)) {
+#if LINUX
+#else
+				Texture.SaveAsPng(stream, width, height);
+#endif
+			}
+		}
 
         public void SaveTo(string file)
         {
